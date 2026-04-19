@@ -33,7 +33,7 @@ def build_client():
         token_uri=info.get("token_uri", "https://oauth2.googleapis.com/token"),
         client_id=info["client_id"],
         client_secret=info["client_secret"],
-        scopes=["https://www.googleapis.com/auth/bigquery.readonly"],
+        scopes=["https://www.googleapis.com/auth/cloud-platform"],
     )
     creds.refresh(Request())
     return bigquery.Client(project=PROJECT_ID, credentials=creds)
