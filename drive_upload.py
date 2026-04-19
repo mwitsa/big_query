@@ -40,10 +40,11 @@ def get_or_create_folder(service, name, parent_id):
     return folder["id"]
 
 
-def upload_to_drive(service, local_path, plant_code, month_folder, filename):
-    """Upload file to Drive maintaining folder structure: plant_code/YYYY-MM/filename."""
-    factory_folder_id = get_or_create_folder(service, plant_code, ROOT_FOLDER_ID)
-    month_folder_id = get_or_create_folder(service, month_folder, factory_folder_id)
+def upload_to_drive(service, local_path, factory_folder_name, month_folder, filename):
+    """Upload file to Drive: {factory folder}/Data/{YYYY-MM}/{filename}"""
+    factory_folder_id = get_or_create_folder(service, factory_folder_name, ROOT_FOLDER_ID)
+    data_folder_id = get_or_create_folder(service, "Data", factory_folder_id)
+    month_folder_id = get_or_create_folder(service, month_folder, data_folder_id)
 
     # Delete existing file with same name to avoid duplicates
     query = f"name='{filename}' and '{month_folder_id}' in parents and trashed=false"
@@ -57,5 +58,5 @@ def upload_to_drive(service, local_path, plant_code, month_folder, filename):
         media_body=media,
         fields="id",
     ).execute()
-    print(f"  Uploaded to Drive: {plant_code}/{month_folder}/{filename} (id={uploaded['id']})")
+    print(f"  Uploaded to Drive: {factory_folder_name}/Data/{month_folder}/{filename} (id={uploaded['id']})")
     return uploaded["id"]

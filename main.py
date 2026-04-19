@@ -22,7 +22,7 @@ QUERY = """
 
 FACTORIES = {
     "262110": "โรงตัดแต่งสุกรขอนแก่น",
-    "410310": "โรงงานพระบาท",
+    "410310": "โรงงานแปรรูปสุกรพระพุทธบาท",
     "594210": "โรงชำแหละสุกรขอนแก่น",
 }
 
@@ -74,8 +74,9 @@ def query_date(client, drive_service, date, plant_code):
     df.to_excel(output_file, index=False)
     log.info(f"[{plant_code}] Excel saved successfully ({os.path.getsize(output_file):,} bytes)")
 
-    log.info(f"[{plant_code}] Uploading to Google Drive ({plant_code}/{month_folder}/{filename})...")
-    upload_to_drive(drive_service, output_file, plant_code, month_folder, filename)
+    drive_folder_name = f"{plant_code} {factory_name}"
+    log.info(f"[{plant_code}] Uploading to Google Drive ({drive_folder_name}/Data/{month_folder}/{filename})...")
+    upload_to_drive(drive_service, output_file, drive_folder_name, month_folder, filename)
     log.info(f"[{plant_code}] Upload complete")
 
 
