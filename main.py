@@ -4,6 +4,7 @@ from google.auth.transport.requests import Request
 import json
 import logging
 import sys
+import urllib.request
 import pandas as pd
 import os
 from datetime import datetime, timedelta
@@ -119,6 +120,20 @@ def run():
     log.info("=" * 60)
     log.info(f"Run complete — Success: {success} | Failed: {failed}")
     log.info("=" * 60)
+
+    if success:
+        log.info("[YieldTracker] Triggering sync...")
+        try:
+            req = urllib.request.Request(
+                "https://yieldtracker-production.up.railway.app/api/sync",
+                method="POST",
+                headers={"Content-Type": "application/json"},
+                data=b"{}",
+            )
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                log.info(f"[YieldTracker] Sync triggered — status {resp.status}")
+        except Exception as e:
+            log.error(f"[YieldTracker] Failed to trigger sync: {e}")
 
 
 if __name__ == "__main__":
