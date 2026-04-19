@@ -6,6 +6,7 @@ import pandas as pd
 import os
 from datetime import datetime, timedelta
 import pytz
+from drive_upload import build_drive_service, upload_to_drive
 
 PROJECT_ID = "cpf-food-performance-tracking"
 QUERY = """
@@ -38,7 +39,7 @@ def build_client():
     return bigquery.Client(project=PROJECT_ID, credentials=creds)
 
 
-def query_date(client, date, plant_code):
+def query_date(client, drive_service, date, plant_code):
     raw_date = date.strftime("%d%m%y")
     stk_doc_date = date.strftime("%Y-%m-%d")
     factory_name = FACTORIES.get(plant_code, plant_code)
@@ -57,9 +58,12 @@ def query_date(client, date, plant_code):
     month_folder = date.strftime("%Y-%m")
     output_dir = os.path.join("factory_code", plant_code, month_folder)
     os.makedirs(output_dir, exist_ok=True)
-    output_file = os.path.join(output_dir, f"{raw_date}.xlsx")
+    filename = f"{raw_date}.xlsx"
+    output_file = os.path.join(output_dir, filename)
     df.to_excel(output_file, index=False)
     print(f"  Saved: {output_file}")
+
+    upload_to_drive(drive_service, output_file, plant_code, month_folder, filename)
 
 
 def run():
@@ -74,9 +78,12 @@ def run():
     client = build_client()
     print(f"Connected to BigQuery project: {PROJECT_ID}")
 
+    drive_service = build_drive_service()
+    print("Connected to Google Drive")
+
     for plant_code in FACTORIES:
         try:
-            query_date(client, target_date, plant_code)
+            query_date(client, drive_service, target_date, plant_code)
         except Exception as e:
             print(f"  ERROR for {plant_code}: {e}")
 

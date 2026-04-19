@@ -18,8 +18,8 @@ CLIENT_SECRET = input("Paste your Google OAuth Client Secret: ").strip()
 
 client_config = {
     "installed": {
-        "client_id": "764086051850-6qr4p6gpi6hn506pt8ejuq83di341hur.apps.googleusercontent.com",
-        "client_secret": "d-FL95Q19q7MQmFpd7hHD0Ty",
+        "client_id": {CLIENT_ID},
+        "client_secret": {CLIENT_SECRET},
         "redirect_uris": ["urn:ietf:wg:oauth:2.0:oob", "http://localhost"],
         "auth_uri": "https://accounts.google.com/o/oauth2/auth",
         "token_uri": "https://oauth2.googleapis.com/token",

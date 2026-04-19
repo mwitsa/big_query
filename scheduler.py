@@ -1,7 +1,10 @@
-from apscheduler.schedulers.blocking import BlockingScheduler
+from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 import pytz
 import logging
+import threading
+from flask import Flask, jsonify
+import os
 from main import run
 
 logging.basicConfig(
@@ -9,17 +12,55 @@ logging.basicConfig(
     format="%(asctime)s %(levelname)s %(message)s",
 )
 
-bangkok = pytz.timezone("Asia/Bangkok")
-scheduler = BlockingScheduler(timezone=bangkok)
+app = Flask(__name__)
+_job_lock = threading.Lock()
+_job_running = False
 
-scheduler.add_job(
-    run,
-    CronTrigger(hour=9, minute=0, timezone=bangkok),
-    id="daily_fetch",
-    name="Daily BigQuery fetch",
-    misfire_grace_time=3600,
-)
+
+def run_job():
+    global _job_running
+    with _job_lock:
+        if _job_running:
+            return False
+        _job_running = True
+    try:
+        run()
+    finally:
+        _job_running = False
+    return True
+
+
+@app.route("/")
+def index():
+    return jsonify({"status": "running", "schedule": "daily at 09:00 Bangkok time"})
+
+
+@app.route("/trigger", methods=["POST"])
+def trigger():
+    if _job_running:
+        return jsonify({"status": "skipped", "reason": "job already running"}), 409
+    thread = threading.Thread(target=run_job, daemon=True)
+    thread.start()
+    return jsonify({"status": "started"}), 202
+
+
+@app.route("/health")
+def health():
+    return jsonify({"status": "ok"})
+
 
 if __name__ == "__main__":
-    logging.info("Scheduler started — daily fetch at 09:00 Bangkok time")
+    bangkok = pytz.timezone("Asia/Bangkok")
+    scheduler = BackgroundScheduler(timezone=bangkok)
+    scheduler.add_job(
+        run_job,
+        CronTrigger(hour=9, minute=0, timezone=bangkok),
+        id="daily_fetch",
+        name="Daily BigQuery fetch",
+        misfire_grace_time=3600,
+    )
     scheduler.start()
+    logging.info("Scheduler started — daily fetch at 09:00 Bangkok time")
+
+    port = int(os.environ.get("PORT", 8080))
+    app.run(host="0.0.0.0", port=port)

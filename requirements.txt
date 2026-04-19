@@ -1,4 +1,5 @@
 google-cloud-bigquery[pandas]
+google-api-python-client
 google-auth
 google-auth-oauthlib
 google-auth-httplib2
@@ -6,4 +7,5 @@ pyarrow
 openpyxl
 pandas
 APScheduler==3.10.4
+flask
 pytz
