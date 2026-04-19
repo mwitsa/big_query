@@ -34,7 +34,7 @@ def run_job():
 
 @app.route("/")
 def index():
-    return jsonify({"status": "running", "schedule": "daily at 09:00 Bangkok time"})
+    return jsonify({"status": "running", "schedule": "daily at 09:00 and 12:00 Bangkok time"})
 
 
 @app.route("/trigger", methods=["POST"])
@@ -57,12 +57,19 @@ if __name__ == "__main__":
     scheduler.add_job(
         run_job,
         CronTrigger(hour=9, minute=0, timezone=bangkok),
-        id="daily_fetch",
-        name="Daily BigQuery fetch",
+        id="daily_fetch_0900",
+        name="Daily BigQuery fetch 09:00",
+        misfire_grace_time=3600,
+    )
+    scheduler.add_job(
+        run_job,
+        CronTrigger(hour=12, minute=0, timezone=bangkok),
+        id="daily_fetch_1200",
+        name="Daily BigQuery fetch 12:00",
         misfire_grace_time=3600,
     )
     scheduler.start()
-    logging.info("Scheduler started — daily fetch at 09:00 Bangkok time")
+    logging.info("Scheduler started — daily fetch at 09:00 and 12:00 Bangkok time")
 
     port = int(os.environ.get("PORT", 8080))
     app.run(host="0.0.0.0", port=port)
