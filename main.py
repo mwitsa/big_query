@@ -2,11 +2,14 @@ from google.cloud import bigquery
 from google.oauth2.credentials import Credentials
 from google.auth.transport.requests import Request
 import json
+import logging
 import pandas as pd
 import os
 from datetime import datetime, timedelta
 import pytz
 from drive_upload import build_drive_service, upload_to_drive
+
+log = logging.getLogger(__name__)
 
 PROJECT_ID = "cpf-food-performance-tracking"
 QUERY = """
@@ -25,6 +28,7 @@ FACTORIES = {
 
 
 def build_client():
+    log.info("[BigQuery] Loading credentials from GOOGLE_CREDENTIALS_JSON...")
     raw = os.environ["GOOGLE_CREDENTIALS_JSON"]
     info = json.loads(raw)
     creds = Credentials(
@@ -35,8 +39,12 @@ def build_client():
         client_secret=info["client_secret"],
         scopes=["https://www.googleapis.com/auth/cloud-platform"],
     )
+    log.info("[BigQuery] Refreshing access token...")
     creds.refresh(Request())
-    return bigquery.Client(project=PROJECT_ID, credentials=creds)
+    log.info("[BigQuery] Token refreshed successfully")
+    client = bigquery.Client(project=PROJECT_ID, credentials=creds)
+    log.info(f"[BigQuery] Connected to project: {PROJECT_ID}")
+    return client
 
 
 def query_date(client, drive_service, date, plant_code):
@@ -44,51 +52,73 @@ def query_date(client, drive_service, date, plant_code):
     stk_doc_date = date.strftime("%Y-%m-%d")
     factory_name = FACTORIES.get(plant_code, plant_code)
 
-    print(f"\n--- {factory_name} ({plant_code}) | {stk_doc_date} ---")
+    log.info(f"[{plant_code}] Starting query for {stk_doc_date} ({factory_name})")
 
     query = QUERY.format(plant_code=plant_code, stk_doc_date=stk_doc_date)
-    df = client.query(query).to_dataframe()
+    log.info(f"[{plant_code}] Sending query to BigQuery...")
+    query_job = client.query(query)
+    df = query_job.to_dataframe()
+    log.info(f"[{plant_code}] Query complete — {len(df)} rows returned")
 
     df.rename(columns={"DESC_LOC_GRP2": "DESC_LOC1", "DESC_LOC_GRP5": "DESC_LOC2"}, inplace=True)
     for col in df.select_dtypes(include=["datetimetz"]).columns:
         df[col] = df[col].dt.tz_localize(None)
-
-    print(f"  Rows: {len(df)}")
 
     month_folder = date.strftime("%Y-%m")
     output_dir = os.path.join("factory_code", plant_code, month_folder)
     os.makedirs(output_dir, exist_ok=True)
     filename = f"{raw_date}.xlsx"
     output_file = os.path.join(output_dir, filename)
-    df.to_excel(output_file, index=False)
-    print(f"  Saved: {output_file}")
 
+    log.info(f"[{plant_code}] Saving Excel file to {output_file}...")
+    df.to_excel(output_file, index=False)
+    log.info(f"[{plant_code}] Excel saved successfully ({os.path.getsize(output_file):,} bytes)")
+
+    log.info(f"[{plant_code}] Uploading to Google Drive ({plant_code}/{month_folder}/{filename})...")
     upload_to_drive(drive_service, output_file, plant_code, month_folder, filename)
+    log.info(f"[{plant_code}] Upload complete")
 
 
 def run():
     bangkok = pytz.timezone("Asia/Bangkok")
-    today = datetime.now(bangkok).date()
-    # Fetch yesterday's data (finalized by 9 AM)
+    now = datetime.now(bangkok)
+    today = now.date()
     target_date = datetime(today.year, today.month, today.day) - timedelta(days=1)
 
-    print(f"=== Daily fetch started at {datetime.now(bangkok).strftime('%Y-%m-%d %H:%M:%S')} Bangkok ===")
-    print(f"Target date: {target_date.strftime('%Y-%m-%d')}")
+    log.info("=" * 60)
+    log.info(f"Daily fetch triggered at {now.strftime('%Y-%m-%d %H:%M:%S')} Bangkok time")
+    log.info(f"Target date: {target_date.strftime('%Y-%m-%d')} (yesterday)")
+    log.info(f"Factories: {list(FACTORIES.keys())}")
+    log.info("=" * 60)
 
-    client = build_client()
-    print(f"Connected to BigQuery project: {PROJECT_ID}")
+    try:
+        client = build_client()
+    except Exception as e:
+        log.error(f"[BigQuery] Failed to connect: {e}")
+        raise
 
-    drive_service = build_drive_service()
-    print("Connected to Google Drive")
+    try:
+        log.info("[Drive] Connecting to Google Drive...")
+        drive_service = build_drive_service()
+        log.info("[Drive] Connected successfully")
+    except Exception as e:
+        log.error(f"[Drive] Failed to connect: {e}")
+        raise
 
+    success, failed = [], []
     for plant_code in FACTORIES:
         try:
             query_date(client, drive_service, target_date, plant_code)
+            success.append(plant_code)
         except Exception as e:
-            print(f"  ERROR for {plant_code}: {e}")
+            log.error(f"[{plant_code}] FAILED: {e}", exc_info=True)
+            failed.append(plant_code)
 
-    print("\n=== Done ===")
+    log.info("=" * 60)
+    log.info(f"Run complete — Success: {success} | Failed: {failed}")
+    log.info("=" * 60)
 
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     run()
