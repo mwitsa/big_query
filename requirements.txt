@@ -1,0 +1,9 @@
+google-cloud-bigquery[pandas]
+google-auth
+google-auth-oauthlib
+google-auth-httplib2
+pyarrow
+openpyxl
+pandas
+APScheduler==3.10.4
+pytz

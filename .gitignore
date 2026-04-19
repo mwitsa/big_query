@@ -1,0 +1,5 @@
+factory_code/
+*.xlsx
+.env
+__pycache__/
+*.pyc
