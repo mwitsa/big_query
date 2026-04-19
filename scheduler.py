@@ -2,6 +2,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 import pytz
 import logging
+import sys
 import threading
 from flask import Flask, jsonify
 import os
@@ -10,6 +11,7 @@ from main import run
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s %(levelname)s %(message)s",
+    stream=sys.stdout,
 )
 
 app = Flask(__name__)
